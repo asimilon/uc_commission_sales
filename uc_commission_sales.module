@@ -1,0 +1,34 @@
+<?php
+/**
+ * @file
+ * Custom module to keep track of sales of products that belong to a user, minus a commission.
+ */
+
+
+/**
+ * Implement hook_menu().
+ */
+
+function uc_commission_sales_menu() {
+	$items['admin/store/settings'] = array(
+		'title' => 'Commission Sales',
+		'description' => 'Set up commission rate for sales',
+		'position' => 'right',
+		'weight' => 0,
+		'page callback' => 'system_admin_menu_block_page',
+		'access arguments' => array('administer store settings'),
+		'file' => 'system.admin.inc',
+		'file path' => drupal_get_path('module', 'system')
+	);
+
+	$items['admin/store/settings/commission_sales'] = array(
+		'title' => 'Commission Sales settings',
+		'description' => 'Set up commission rate',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('uc_commission_sales_settings'),
+		'access arguments' => array('administer store settings'),
+		'file' => 'uc_commission_sales.admin.inc'
+	);
+
+	return $items;
+}

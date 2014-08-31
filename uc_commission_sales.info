@@ -1,0 +1,13 @@
+name = Ubercart Commission Sales
+description = Keeps track of which products have been sold that belong to a user, minus a commission.
+package = Ubercart - extra
+core = 7.x
+
+dependencies[] = uc_cart
+
+files[] = uc_commission_sales.module
+files[] = uc_commission_sales.admin.inc
+
+configure = admin/store/settings/commission_sales
+
+version = 7.x-0.1
