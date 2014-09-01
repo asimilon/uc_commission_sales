@@ -17,7 +17,7 @@ function uc_commission_sales_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
-        'description' => 'The user\'s {users}.uid';
+        'description' => 'The user\'s {users}.uid'
       ),
       'amount_owed' => array(
         'type' => 'float',
