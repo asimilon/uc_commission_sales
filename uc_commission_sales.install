@@ -1,0 +1,58 @@
+<?php
+/**
+ * @file
+ * Install functions for uc_commission_sales module.
+ */
+
+/**
+ * Set up custom table.  Implements hook_schema().
+ */
+
+function uc_commission_sales_schema() {
+  $schema['uc_commission_sales'] = array(
+    'description' => 'Stores the amounts owed to each user for any sales of their products.',
+    'fields' => array(
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The user\'s {users}.uid';
+      ),
+      'amount_owed' => array(
+        'type' => 'float',
+        'unsigned' => FALSE,
+        'size' => 'normal',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The amount owed to the user.'
+      ),
+      'last_month' => array(
+        'type' => 'float',
+        'unsigned' => FALSE,
+        'size' => 'normal',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Amount earned last month.'
+      ),
+      'total' => array(
+        'type' => 'float',
+        'unsigned' => FALSE,
+        'size' => 'normal',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Total amount earned for all time.'
+      )
+    ),
+    'primary key' => array('uid')
+  );
+  return $schema;
+}
+
+/**
+ * Clear up our shit.  Implements hook_uninstall().
+ */
+
+function uc_commission_sales() {
+  variable_del('uc_commission_sales_rate');
+}
