@@ -17,7 +17,7 @@ function uc_commission_sales_uc_order($op, &$order, $state) {
       $uccs_price = floatval($product->price);
       // only interested if it's a product that has non-zero price
       if ($uccs_price > 0) {
-        // work out the user who created this product
+        // select the node to work out the user who created this product
         $uccs_nid = $product->nid;
         $res = db_query('SELECT n.uid FROM {node} n WHERE n.nid = :nid', array(':nid' => $uccs_nid));
         foreach ($res as $record) {
@@ -32,19 +32,20 @@ function uc_commission_sales_uc_order($op, &$order, $state) {
             $record2 = new stdClass();
             $record2->uid = $record->uid;
             $record2->amount_owed = 0;
-            $record2->last_month = 0;
+            $record2->last_payout = 0;
             $record2->total = 0;
             $uccs_amount_owed = $record2->amount_owed;
             $record2->amount_owed += $uccs_amount_after_commission;
             drupal_write_record('uc_commission_sales', $record2);
-            watchdog('uc_commission_sales', 'added %amnt to new uid %uid', array('%amnt' => $uccs_amount_after_commission, '%uid' => $record2->uid), WATCHDOG_NOTICE, 'link');
-          } else {
+            watchdog('uc_commission_sales', 'added £%amnt to new uid %uid', array('%amnt' => $uccs_amount_after_commission, '%uid' => $record2->uid), WATCHDOG_NOTICE, 'link');
+          }
+          else {
             // since uid already exists, just update the amount_owed
             db_update('uc_commission_sales')
                 ->expression('amount_owed', 'amount_owed + :amount', array(':amount' => $uccs_amount_after_commission))
                 ->condition('uid', $record->uid)
                 ->execute();
-            watchdog('uc_commission_sales', 'added %amnt to existing uid %uid', array('%amnt' => $uccs_amount_after_commission, '%uid' => $record->uid), WATCHDOG_NOTICE, 'link');
+            watchdog('uc_commission_sales', 'added £%amnt to existing uid %uid', array('%amnt' => $uccs_amount_after_commission, '%uid' => $record->uid), WATCHDOG_NOTICE, 'link');
           }
         }
       }
@@ -77,4 +78,66 @@ function uc_commission_sales_menu() {
 	);
 
 	return $items;
+}
+
+/**
+ * Implements hook_cron_queue_info().
+ */
+function uc_commission_sales_cron_queue_info() {
+  $queues['uc_commission_sales_q'] = array(
+    'worker callback' => 'uc_commission_sales_q_process',
+    'time' => 10,
+  );
+  return $queues;
+}
+
+/**
+ * Implements hook_cron().
+ */
+function uc_commission_sales_cron() {
+  $today = date("j");
+  // depending on what day we are supposed to do the mass payments check if it's beginning of month and so reset rancron flag
+  if (variable_get('uc_commission_sales_masspay_day', 0) == 1) {
+    if ($today == 2) variable_set('uc_commission_sales_rancron', FALSE);
+  }
+  else {
+    if ($today == 1) variable_set('uc_commission_sales_rancron', FALSE);
+  }
+  if ($today == variable_get('uc_commission_sales_masspay_day', 0)) {
+    // only do this once per month
+    if (!variable_get('uc_commission_sales_rancron', FALSE)) {
+      variable_set('uc_commission_sales_rancron', TRUE);
+      // today's the day, get a list of all users owed over £50 and their paypal address
+      $res = db_query('SELECT n.amount_owed,m.field_paypal_address_value,n.uid
+                       FROM {uc_commission_sales} n,{field_data_field_paypal_address} m
+                       WHERE n.uid = m.entity_id AND n.amount_owed > 50');
+      $nvplist = "USER=" . variable_get('uc_commission_sales_paypal_api_username', '');
+      $nvplist .= "&PWD=" . variable_get('uc_commission_sales_paypal_api_password', '');
+      $nvplist .= "&SIGNATURE=" . variable_get('uc_commission_sales_paypal_api_signature', '');
+      $nvplist .= "&VERSION=2.3&METHOD=MassPay&RECEIVERTYPE=EmailAddress";
+      $c = 0;
+      foreach ($res as $record) {
+        // only interested if they owed over £50
+        if ($record->amount_owed > 50) {
+          // add the NVP for this user
+          $nvplist .= '&L_EMAIL' . $c . '=' . $record->field_paypal_address_value . '&L_AMT' . $c . '=' . $record->amount_owed;
+          $c++;
+          // update the commission sales database
+          db_update('uc_commission_sales')
+              ->expression('total', 'total + :amount', array(':amount' => $record->amount_owed))
+              ->condition('uid', $record->uid, '=')
+              ->execute();
+          db_update('uc_commission_sales')
+              ->fields(array(
+                'last_payout' => $record->amount_owed,
+                'amount_owed' => 0
+                ))
+              ->condition('uid', $record->uid, '=')
+              ->execute();
+        }
+      }
+      $nvplist .= "&CURRENCYCODE=GBP";
+      dpm($nvplist);
+    }
+  }
 }
