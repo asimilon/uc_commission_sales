@@ -1,5 +1,5 @@
 name = Commission Sales
-description = Keeps track of which products have been sold that belong to a user, minus a commission.
+description = Keeps track of which products have been sold that belong to a content creator, minus a commission and then uses PayPal Mass Payment API to pay each user once per month when they have earned over £50.
 package = Ubercart - extra
 core = 7.x
 
@@ -11,4 +11,4 @@ files[] = uc_commission_sales.install
 
 configure = admin/store/settings/commission_sales
 
-version = 7.x-0.1.3
+version = 7.x-0.3
