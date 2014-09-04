@@ -40,7 +40,7 @@ function uc_commission_sales_settings() {
     '#type' => 'textfield',
     '#title' => t('API username'),
     '#default_value' => variable_get('uc_commission_sales_paypal_api_username', ''),
-    '#size' => 60,
+    '#size' => 90,
     '#description' => t('Your PayPal API username.'),
     '#required' => TRUE
   );
@@ -48,7 +48,7 @@ function uc_commission_sales_settings() {
     '#type' => 'textfield',
     '#title' => t('API password'),
     '#default_value' => variable_get('uc_commission_sales_paypal_api_password', ''),
-    '#size' => 60,
+    '#size' => 90,
     '#description' => t('Your PayPal API password'),
     '#required' => TRUE
   );
@@ -56,7 +56,7 @@ function uc_commission_sales_settings() {
     '#type' => 'textfield',
     '#title' => t('API signature'),
     '#default_value' => variable_get('uc_commission_sales_paypal_api_signature', ''),
-    '#size' => 60,
+    '#size' => 90,
     '#description' => t('The provided API signature.'),
     '#required' => TRUE
   );
