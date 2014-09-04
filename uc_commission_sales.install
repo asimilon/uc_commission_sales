@@ -7,7 +7,6 @@
 /**
  * Set up custom table.  Implements hook_schema().
  */
-
 function uc_commission_sales_schema() {
   $schema['uc_commission_sales'] = array(
     'description' => 'Stores the amounts owed to each user for any sales of their products.',
@@ -50,9 +49,42 @@ function uc_commission_sales_schema() {
 }
 
 /**
+ * Implements hook_install().
+ */
+function hook_install() {
+  uc_commission_sales_makeheavy();
+}
+
+/**
+ * Makes this module heavier than the heaviest module that implements hook_order().
+ * @return void
+ */
+function uc_commission_sales_makeheavy() {
+  // Check which modules implements hook_order().
+  $hook_order_modules = array();
+  foreach (module_list() as $module) {
+    $function = $module .'_order';
+    if ($module != 'uc_commission_sales' && function_exists($function)) {
+      $hook_order_modules[] = $module;
+    }
+  }
+  if (is_array($hook_order_modules)) {
+    // Load maximum weight
+    $sQuery = "SELECT max(weight) AS weight
+    FROM {system}
+    WHERE type='module'
+    AND name IN (".db_placeholders($hook_order_modules, 'varchar').")";
+    $iWeight = db_result(db_query($sQuery, $hook_order_modules));
+    // Increase weight with 1
+    $iWeight++;
+    // Save weight
+    db_query("UPDATE {system} SET weight = %d WHERE name = 'uc_commission_sales' AND type = 'module'", $iWeight);
+  }
+}
+
+/**
  * Clear up our shit.  Implements hook_uninstall().
  */
-
-function uc_commission_sales() {
+function uc_commission_sales_uninstall() {
   variable_del('uc_commission_sales_rate');
 }

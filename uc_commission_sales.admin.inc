@@ -10,6 +10,7 @@
  * @ingroup forms
  * @see system_settings_form().
  */
+
 function uc_commission_sales_settings() {
   $form['uc_commission_sales_rate'] = array(
     '#type' => 'textfield',

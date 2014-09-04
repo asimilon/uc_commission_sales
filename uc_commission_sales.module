@@ -4,11 +4,57 @@
  * Custom module to keep track of sales of products that belong to a user, minus a commission.
  */
 
+/**
+ * Implements hook_uc_order().
+ */
+function uc_commission_sales_uc_order($op, &$order, $state) {
+  // we're only interested in fully completed order updates
+  if ($op == 'update' &&
+      $order->order_status == "payment_received" &&
+      $state == "completed") {
+    // loop through the products in this order
+    foreach ($order->products as $product) {
+      $uccs_price = floatval($product->price);
+      // only interested if it's a product that has non-zero price
+      if ($uccs_price > 0) {
+        // work out the user who created this product
+        $uccs_nid = $product->nid;
+        $res = db_query('SELECT n.uid FROM {node} n WHERE n.nid = :nid', array(':nid' => $uccs_nid));
+        foreach ($res as $record) {
+          // calculate amount owed
+          $uccs_rate = (100 - variable_get('uc_commission_sales_rate', 0)) / 100;
+          $uccs_amount_after_commission = $uccs_price * $uccs_rate;
+          // try to select existing uid
+          $res2 = db_query('SELECT n.* FROM {uc_commission_sales} n WHERE n.uid = :uid', array(':uid' => $record->uid));
+          $record2 = $res2->fetchObject();
+          // if not write a new record
+          if (!$record2) {
+            $record2 = new stdClass();
+            $record2->uid = $record->uid;
+            $record2->amount_owed = 0;
+            $record2->last_month = 0;
+            $record2->total = 0;
+            $uccs_amount_owed = $record2->amount_owed;
+            $record2->amount_owed += $uccs_amount_after_commission;
+            drupal_write_record('uc_commission_sales', $record2);
+            watchdog('uc_commission_sales', 'added %amnt to new uid %uid', array('%amnt' => $uccs_amount_after_commission, '%uid' => $record2->uid), WATCHDOG_NOTICE, 'link');
+          } else {
+            // since uid already exists, just update the amount_owed
+            db_update('uc_commission_sales')
+                ->expression('amount_owed', 'amount_owed + :amount', array(':amount' => $uccs_amount_after_commission))
+                ->condition('uid', $record->uid)
+                ->execute();
+            watchdog('uc_commission_sales', 'added %amnt to existing uid %uid', array('%amnt' => $uccs_amount_after_commission, '%uid' => $record->uid), WATCHDOG_NOTICE, 'link');
+          }
+        }
+      }
+    }
+  }
+}
 
 /**
- * Implement hook_menu().
+ * Implements hook_menu().
  */
-
 function uc_commission_sales_menu() {
 	$items['admin/store/settings'] = array(
 		'title' => 'Commission Sales',
