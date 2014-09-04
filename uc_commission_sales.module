@@ -110,7 +110,7 @@ function uc_commission_sales_cron() {
       // today's the day, get a list of all users owed over £50 and their paypal address
       $res = db_query('SELECT n.amount_owed,m.field_paypal_address_value,n.uid
                        FROM {uc_commission_sales} n,{field_data_field_paypal_address} m
-                       WHERE n.uid = m.entity_id AND n.amount_owed > 50');
+                       WHERE n.uid = m.entity_id');
       $nvplist = "USER=" . variable_get('uc_commission_sales_paypal_api_username', '');
       $nvplist .= "&PWD=" . variable_get('uc_commission_sales_paypal_api_password', '');
       $nvplist .= "&SIGNATURE=" . variable_get('uc_commission_sales_paypal_api_signature', '');
@@ -130,6 +130,7 @@ function uc_commission_sales_cron() {
           db_update('uc_commission_sales')
               ->fields(array(
                 'last_payout' => $record->amount_owed,
+                'last_payout_date' => time(),
                 'amount_owed' => 0
                 ))
               ->condition('uid', $record->uid, '=')
