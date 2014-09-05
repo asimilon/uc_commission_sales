@@ -35,11 +35,11 @@ function uc_commission_sales_schema() {
         'description' => 'Amount earned last payout.'
       ),
       'last_payout_date' => array(
-        'type' => int,
+        'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
-        'description', 'Seconds since epoch of last payout.'
+        'description' => 'Seconds since epoch of last payout.'
       ),
       'total' => array(
         'type' => 'float',

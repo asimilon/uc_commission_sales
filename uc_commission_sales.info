@@ -11,4 +11,4 @@ files[] = uc_commission_sales.install
 
 configure = admin/store/settings/commission_sales
 
-version = 7.x-0.3
+version = 7.x-0.4

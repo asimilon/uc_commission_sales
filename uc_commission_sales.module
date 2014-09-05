@@ -37,7 +37,7 @@ function uc_commission_sales_uc_order($op, &$order, $state) {
             $uccs_amount_owed = $record2->amount_owed;
             $record2->amount_owed += $uccs_amount_after_commission;
             drupal_write_record('uc_commission_sales', $record2);
-            watchdog('uc_commission_sales', 'added £%amnt to new uid %uid', array('%amnt' => $uccs_amount_after_commission, '%uid' => $record2->uid), WATCHDOG_NOTICE, 'link');
+            watchdog('uc_commission_sales', 'added £%amnt to new uid %uid', array('%amnt' => $uccs_amount_after_commission, '%uid' => $record2->uid), WATCHDOG_NOTICE, 'sale');
           }
           else {
             // since uid already exists, just update the amount_owed
@@ -45,7 +45,7 @@ function uc_commission_sales_uc_order($op, &$order, $state) {
                 ->expression('amount_owed', 'amount_owed + :amount', array(':amount' => $uccs_amount_after_commission))
                 ->condition('uid', $record->uid)
                 ->execute();
-            watchdog('uc_commission_sales', 'added £%amnt to existing uid %uid', array('%amnt' => $uccs_amount_after_commission, '%uid' => $record->uid), WATCHDOG_NOTICE, 'link');
+            watchdog('uc_commission_sales', 'added £%amnt to existing uid %uid', array('%amnt' => $uccs_amount_after_commission, '%uid' => $record->uid), WATCHDOG_NOTICE, 'sale');
           }
         }
       }
@@ -65,7 +65,7 @@ function uc_commission_sales_menu() {
 		'page callback' => 'system_admin_menu_block_page',
 		'access arguments' => array('administer store settings'),
 		'file' => 'system.admin.inc',
-		'file path' => drupal_get_path('module', 'system')
+		'file path' => drupal_get_path('module', 'system'),
 	);
 
 	$items['admin/store/settings/commission_sales'] = array(
@@ -74,10 +74,41 @@ function uc_commission_sales_menu() {
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('uc_commission_sales_settings'),
 		'access arguments' => array('administer store settings'),
-		'file' => 'uc_commission_sales.admin.inc'
+		'file' => 'uc_commission_sales.admin.inc',
 	);
 
+  $items['admin/store/reports/commission_sales'] = array(
+    'title' => 'Commission Sales',
+    'description' => 'View report of how much users have earned',
+    'page callback' => 'uc_commission_sales_report',
+    'access arguments' => array('administer store settings'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
 	return $items;
+}
+
+/**
+ * Report on how much each content creator is owed.
+ */
+function uc_commission_sales_report() {
+  $output = '<h2>Commission Sales</h2>';
+  $output .= '<table>';
+  $output .= '<tr bgcolor="#ccc"><td>Username</td><td>Amount owed</td><td>Last Payout Amount</td><td>Last payout date</td><td>Total earned</td></tr>';
+
+  $res = db_query('SELECT u.name,n.* FROM {users} u, {uc_commission_sales} n WHERE u.uid = n.uid');
+  $bg = '#fff';
+  foreach ($res as $record) {
+    $output .= '<tr bgcolor="' . $bg . '"><td>' . $record->name . '</td><td>£' . number_format($record->amount_owed, 2) . '</td>';
+    $output .= '<td>£' . number_format($record->last_payout, 2) . '</td><td>';
+    if ($record->last_payout_date != 0) $output .= format_date($record->last_payout_date, 'short'); else $output .= 'never';
+    $output .= '</td><td>£' . number_format($record->total, 2) . '</td></tr>';
+    $bg = ($bg == "#fff")?'#eee':'#fff';
+  }
+
+  $output .= '</table>';
+
+  return $output;
 }
 
 /**
@@ -107,7 +138,7 @@ function uc_commission_sales_cron() {
     // only do this once per month
     if (!variable_get('uc_commission_sales_rancron', FALSE)) {
       variable_set('uc_commission_sales_rancron', TRUE);
-      // today's the day, get a list of all users owed over £50 and their paypal address
+      // today's the day, get a list of all users owed and their paypal address
       $res = db_query('SELECT n.amount_owed,m.field_paypal_address_value,n.uid
                        FROM {uc_commission_sales} n,{field_data_field_paypal_address} m
                        WHERE n.uid = m.entity_id');
@@ -131,14 +162,29 @@ function uc_commission_sales_cron() {
               ->fields(array(
                 'last_payout' => $record->amount_owed,
                 'last_payout_date' => time(),
-                'amount_owed' => 0
+                'amount_owed' => 0,
                 ))
               ->condition('uid', $record->uid, '=')
               ->execute();
         }
       }
       $nvplist .= "&CURRENCYCODE=GBP";
-      dpm($nvplist);
+      // choose the paypal server as per preference
+      if (variable_get('uc_commission_sales_paypal_server', 'sandbox') == 'live') {
+        $server = 'https://api.paypal.com/';
+      }
+      else {
+        $server = 'https://api-3t.sandbox.paypal.com/';
+      }
+      // curl request to the nvp api
+      $curlh = curl_init();
+      curl_setopt($curlh, CURLOPT_URL, $server . 'nvp?' . $nvplist);
+      curl_setopt($curlh, CURLOPT_RETURNTRANSFER, 1);
+      curl_setopt($curlh, CURLOPT_CONNECTTIMEOUT, 9);
+      $curlres = curl_exec($curlh);
+      curl_close($curlh);
+      watchdog('uc_commission_sales', 'nvp:'.$nvplist, array(), WATCHDOG_NOTICE, 'payout');
+      watchdog('uc_commission_sales', 'result:'.urldecode($curlres), array(), WATCHDOG_NOTICE, 'payout');
     }
   }
 }
