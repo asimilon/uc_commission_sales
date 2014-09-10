@@ -142,16 +142,15 @@ function uc_commission_sales_cron() {
       $res = db_query('SELECT n.amount_owed,m.field_paypal_address_value,n.uid
                        FROM {uc_commission_sales} n,{field_data_field_paypal_address} m
                        WHERE n.uid = m.entity_id');
-      $nvplist = "USER=" . variable_get('uc_commission_sales_paypal_api_username', '');
-      $nvplist .= "&PWD=" . variable_get('uc_commission_sales_paypal_api_password', '');
-      $nvplist .= "&SIGNATURE=" . variable_get('uc_commission_sales_paypal_api_signature', '');
-      $nvplist .= "&VERSION=2.3&METHOD=MassPay&RECEIVERTYPE=EmailAddress";
       $c = 0;
+      $MPitems = array();
       foreach ($res as $record) {
         // only interested if they owed over £50
         if ($record->amount_owed > 50) {
-          // add the NVP for this user
-          $nvplist .= '&L_EMAIL' . $c . '=' . $record->field_paypal_address_value . '&L_AMT' . $c . '=' . $record->amount_owed;
+          // create a new Mass Pay item
+          $MPitems[$c] = array('l_email' => $record->field_paypal_address_value,
+                               'l_amt' => $record->amount_owed
+                                );
           $c++;
           // update the commission sales database
           db_update('uc_commission_sales')
@@ -168,7 +167,7 @@ function uc_commission_sales_cron() {
               ->execute();
         }
       }
-      $nvplist .= "&CURRENCYCODE=GBP";
+/*      $nvplist .= "&CURRENCYCODE=GBP";
       // choose the paypal server as per preference
       if (variable_get('uc_commission_sales_paypal_server', 'sandbox') == 'live') {
         $server = 'https://api.paypal.com/';
@@ -185,6 +184,22 @@ function uc_commission_sales_cron() {
       curl_close($curlh);
       watchdog('uc_commission_sales', 'nvp:'.$nvplist, array(), WATCHDOG_NOTICE, 'payout');
       watchdog('uc_commission_sales', 'result:'.urldecode($curlres), array(), WATCHDOG_NOTICE, 'payout');
+*/
+      require_once('paypal-config.php');
+      require_once('paypal-php-library-master/autoload.php');
+      $PayPalConfig = array('Sandbox' => $sandbox,
+                            'APIUsername' => $api_username,
+                            'APIPassword' => $api_password,
+                            'APISignature' => $api_signature,
+                            'PrintHeaders' => $print_headers,
+                            'LogResults' => $log_results,
+                            'LogPath' => $log_path,
+                            );
+      $PayPal = new angelleye\PayPal\PayPal($PayPalConfig);
+      $MPfields = array('emailsubject' => "You've been paid your share!", 'currencycode' => 'GBP', 'receivertype' => 'EmailAddress');
+      $PayPalRequestData = array('MPFields' => $MPfields, 'MPItems' => $MPitems);
+      $PayPalResult = $PayPal->MassPay($PayPalRequestData);
+      if ($PayPalResult == 1) watchdog('uc_commission_sales', 'PayPal Mass Pay successful', array(), WATCHDOG_NOTICE, 'payout'); else watchdog('uc_commission_sales', 'result:' . var_dump($PayPalResult), array(), WATCHDOG_NOTICE, 'link');
     }
   }
 }
