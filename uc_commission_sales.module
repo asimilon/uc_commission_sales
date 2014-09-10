@@ -167,24 +167,6 @@ function uc_commission_sales_cron() {
               ->execute();
         }
       }
-/*      $nvplist .= "&CURRENCYCODE=GBP";
-      // choose the paypal server as per preference
-      if (variable_get('uc_commission_sales_paypal_server', 'sandbox') == 'live') {
-        $server = 'https://api.paypal.com/';
-      }
-      else {
-        $server = 'https://api-3t.sandbox.paypal.com/';
-      }
-      // curl request to the nvp api
-      $curlh = curl_init();
-      curl_setopt($curlh, CURLOPT_URL, $server . 'nvp?' . $nvplist);
-      curl_setopt($curlh, CURLOPT_RETURNTRANSFER, 1);
-      curl_setopt($curlh, CURLOPT_CONNECTTIMEOUT, 9);
-      $curlres = curl_exec($curlh);
-      curl_close($curlh);
-      watchdog('uc_commission_sales', 'nvp:'.$nvplist, array(), WATCHDOG_NOTICE, 'payout');
-      watchdog('uc_commission_sales', 'result:'.urldecode($curlres), array(), WATCHDOG_NOTICE, 'payout');
-*/
       require_once('paypal-config.php');
       require_once('paypal-php-library-master/autoload.php');
       $PayPalConfig = array('Sandbox' => $sandbox,
